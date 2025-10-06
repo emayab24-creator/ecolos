@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRM Portal — v6.16</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header>
+  <h1>CRM Portal</h1>
+  <div class="nav">
+    <button class="tab" data-tab="mismatch">Несоответствия</button>
+    <button class="tab" data-tab="dashboard">Главная</button>
+    <button class="tab" data-tab="stale">200+ дней</button>
+    <button class="tab" data-tab="tasks">Задачи</button>
+    <button class="tab active" data-tab="compare">Сравнение</button>
+  </div>
+  <div class="header-actions">
+    <!-- Deals -->
+    <div class="uploader">
+      <label class="btn primary" for="dFileH">CSV сделки</label>
+      <input id="dFileH" type="file" accept=".csv" style="display:none">
+      <select id="dModeH" class="select">
+        <option value="replace">Заменить всё</option>
+        <option value="merge">Объединить (по ID сделки)</option>
+      </select>
+      <button class="btn" id="refreshAll">Обновить отчёты</button>
+      <a class="btn" id="dlDealsTpl" download="deals_template_from_you.csv">Шаблон (из твоих колонок)</a>
+      <span id="dInfoH" class="pill">Нет данных</span>
+    </div>
+
+    <!-- Tasks -->
+    <div class="uploader">
+      <label class="btn" for="tFileH">CSV задачи</label>
+      <input id="tFileH" type="file" accept=".csv" style="display:none">
+      <a class="btn" id="dlTasksTpl" download="tasks_template_from_you.csv">Шаблон (из твоих колонок)</a>
+      <span id="tInfoH" class="pill weak">Не загружено</span>
+    </div>
+
+    <button class="btn ghost" id="toggleLog" title="Показать лог импорта">Лог</button>
+  </div>
+</header>
+
+<div id="toast" class="toast" style="display:none"></div>
+<div id="logPanel" class="log" style="display:none"></div>
+
+<main class="container">
+  <!-- Несоответствия -->
+  <section id="mismatch" class="page" style="display:none">
+    <div id="zeroDeals" class="zero" style="display:none">
+      <div>Данные по сделкам не найдены.<br>Выбери <b>CSV сделки</b> в шапке — импорт начнётся сразу.</div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Все сделки по стадиям (несоответствия красным)</h2>
+        <div class="controls">
+          <span class="small" id="mmWarn"></span>
+          <button class="btn" id="exportMismatch">Экспорт XLS</button>
+        </div>
+      </div>
+    </div>
+    <div id="mmTable"></div>
+  </section>
+
+  <!-- Главная -->
+  <section id="dashboard" class="page" style="display:none">
+    <div id="zeroDeals2" class="zero" style="display:none">
+      <div>Нет данных для графиков. Импортируй CSV сделки вверху.</div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Дашборд</h2>
+        <div class="controls">
+          <button class="btn" id="exportDash">Экспорт данных (XLS)</button>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid" id="kpi"></div>
+    <div class="grid-2">
+      <div class="card chart sm"><h3>По месяцам</h3><div id="cMonth"></div></div>
+      <div class="card chart sm"><h3>По отделам</h3><div id="cDept"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card chart sm"><h3>По стадиям</h3><div id="cStage"></div></div>
+      <div class="card chart sm"><h3>По сотрудникам (топ-20)</h3><div id="cPerson"></div></div>
+    </div>
+  </section>
+
+  <!-- 200+ дней -->
+  <section id="stale" class="page" style="display:none">
+    <div class="card">
+      <div class="card-head">
+        <h2>Более N дней без изменений</h2>
+        <div class="controls">
+          <label>Дней: <input id="staleDays" type="number" class="input" value="200" min="1"></label>
+          <button class="btn" id="exportStale">Экспорт XLS</button>
+        </div>
+      </div>
+    </div>
+    <div id="staleWrap"></div>
+  </section>
+
+  <!-- Задачи -->
+  <section id="tasks" class="page" style="display:none">
+    <div class="card">
+      <div class="card-head">
+        <h2>Задачи — счётчики</h2>
+        <div class="controls">
+          <label>Создана с <input id="tFromC" type="text" class="input datepicker" placeholder="YYYY-MM-DD"></label>
+          <label>по <input id="tToC" type="text" class="input datepicker" placeholder="YYYY-MM-DD"></label>
+          <label>Закрыта с <input id="tFromZ" type="text" class="input datepicker" placeholder="YYYY-MM-DD"></label>
+          <label>по <input id="tToZ" type="text" class="input datepicker" placeholder="YYYY-MM-DD"></label>
+          <select id="tCreator" class="select"></select>
+          <select id="tAssignee" class="select"></select>
+          <select id="tStatus" class="select"></select>
+          <button class="btn" id="tApply">Применить</button>
+          <button class="btn" id="exportTasksSummary">Экспорт XLS</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><h3>1) Сам себе</h3><div id="tTbl1" class="table-wrap"></div></div>
+      <div class="card"><h3>2) По постановщикам</h3><div id="tTbl2" class="table-wrap"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><h3>3) По исполнителям</h3><div id="tTbl3" class="table-wrap"></div></div>
+      <div class="card"><h3>4) Статусы × Исполнители</h3><div id="tTbl4" class="table-wrap"></div></div>
+    </div>
+  </section>
+
+  <!-- Сравнение (файлы) -->
+  <section id="compare" class="page" style="display:grid">
+    <div class="card">
+      <div class="card-head">
+        <h2>Сохранённые файлы сделок</h2>
+        <div class="controls">
+          <select id="fileList" class="select" multiple size="8" style="min-width:380px"></select>
+          <button class="btn" id="fileRename">Переименовать</button>
+          <button class="btn" id="fileDelete">Удалить</button>
+          <label>Год <input id="metaYear" type="number" class="input" style="width:90px"></label>
+          <label>Месяц <select id="metaMonth" class="select">
+            <option value="1">Янв</option><option value="2">Фев</option><option value="3">Мар</option><option value="4">Апр</option>
+            <option value="5">Май</option><option value="6">Июн</option><option value="7">Июл</option><option value="8">Авг</option>
+            <option value="9">Сен</option><option value="10">Окт</option><option value="11">Ноя</option><option value="12">Дек</option>
+          </select></label>
+          <label>Неделя месяца <select id="metaWOM" class="select"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+          <label>ISO неделя года <input id="metaWOY" type="number" class="input" style="width:90px"></label>
+          <button class="btn" id="metaAuto">Авто</button>
+          <button class="btn" id="metaSave">Сохранить метки</button>
+        </div>
+      </div>
+      <div class="small">Каждый импорт CSV сделок автоматически сохраняется в список. Выбери файлы для сравнения и экспортируй отчёт.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Сравнение выбранных файлов</h2>
+        <div class="controls">
+          <button class="btn" id="compareMulti">Сравнить выбранные</button>
+          <button class="btn" id="exportMulti">Экспорт (XLS)</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3>Стадии × Файлы</h3><div id="multiStages" class="table-wrap"></div></div>
+        <div class="card"><h3>Отделы × Файлы</h3><div id="multiDepts" class="table-wrap"></div></div>
+      </div>
+      <div class="card"><h3>Итого по файлам</h3><div id="multiTotals" class="table-wrap"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Точное сравнение A/B</h2>
+        <div class="controls">
+          <select id="fileA" class="select"></select>
+          <select id="fileB" class="select"></select>
+          <button class="btn" id="compareAB">Сравнить A/B</button>
+          <button class="btn" id="exportCompare">Экспорт сравнения (XLS)</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3>Стадии</h3><div id="cmpStages" class="table-wrap"></div></div>
+        <div class="card"><h3>Отделы</h3><div id="cmpDept" class="table-wrap"></div></div>
+      </div>
+      <div class="card"><h3>Сотрудники (топ-30 по |Δ|)</h3><div id="cmpPersons" class="table-wrap"></div></div>
+      <div class="card"><h3>Перемещения по стадиям</h3><div id="cmpMoves" class="table-wrap"></div></div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
